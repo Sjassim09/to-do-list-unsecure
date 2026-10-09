@@ -95,3 +95,7 @@ class TaskViewsTest(TestCase):
 
         self.assertEqual(Task.objects.count(), 0)
         self.assertRedirects(response, "/")
+
+class TestQuiCasse(TestCase):
+    def test_casse_expres(self):
+        self.assertEqual(1, 2)
