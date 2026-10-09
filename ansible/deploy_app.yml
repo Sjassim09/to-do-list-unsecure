@@ -1,0 +1,65 @@
+- name: Deploiement de todolist
+  hosts: my_infra
+  become: true
+
+  tasks:
+    - name: Installer les paquets
+      ansible.builtin.apt:
+        name: [git, python3-venv, python3-packaging]
+        update_cache: true
+
+    - name: Recuperer les sources depuis GitHub
+      ansible.builtin.git:
+        repo: https://github.com/Sjassim09/to-do-list-unsecure.git
+        dest: /opt/todolist
+        version: "{{ branch }}"
+        force: true
+
+    - name: Mode production (DEBUG = False)
+      ansible.builtin.lineinfile:
+        path: /opt/todolist/todo/settings.py
+        regexp: '^DEBUG ='
+        line: 'DEBUG = False'
+      when: environnement == "prod"
+
+    - name: Installer les dependances Python
+      ansible.builtin.pip:
+        name: [django==6.0, pyyaml==5.3.1, requests==2.19.1, gunicorn]
+        virtualenv: /opt/todolist/venv
+        virtualenv_command: python3 -m venv
+
+    - name: Preparer la base
+      ansible.builtin.command:
+        cmd: /opt/todolist/venv/bin/python manage.py migrate
+        chdir: /opt/todolist
+
+    - name: Creer le service todolist
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/todolist.service
+        content: |
+          [Unit]
+          Description=todolist
+          After=network.target
+
+          [Service]
+          WorkingDirectory=/opt/todolist
+          ExecStart=/opt/todolist/venv/bin/gunicorn --bind 0.0.0.0:80 todo.wsgi:application
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Demarrer le service todolist
+      ansible.builtin.systemd:
+        name: todolist
+        state: restarted
+        enabled: true
+        daemon_reload: true
+
+    - name: Verifier que l'appli repond
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}"
+      register: resultat
+      until: resultat.status == 200
+      retries: 5
+      delay: 2
