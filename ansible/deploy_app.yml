@@ -16,6 +16,11 @@
         home: /opt/todolist
         create_home: false
 
+    - name: Autoriser git a operer sur /opt/todolist (appartient a todolist)
+      ansible.builtin.command:
+        cmd: git config --global --add safe.directory /opt/todolist
+      changed_when: false
+
     - name: Recuperer les sources depuis GitHub
       ansible.builtin.git:
         repo: https://github.com/Sjassim09/to-do-list-unsecure.git
