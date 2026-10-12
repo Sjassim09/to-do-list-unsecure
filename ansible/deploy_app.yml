@@ -8,6 +8,14 @@
         name: [git, python3-venv, python3-packaging]
         update_cache: true
 
+    - name: Creer l'utilisateur systeme todolist (non privilegie)
+      ansible.builtin.user:
+        name: todolist
+        system: true
+        shell: /usr/sbin/nologin
+        home: /opt/todolist
+        create_home: false
+
     - name: Recuperer les sources depuis GitHub
       ansible.builtin.git:
         repo: https://github.com/Sjassim09/to-do-list-unsecure.git
@@ -33,7 +41,18 @@
         cmd: /opt/todolist/venv/bin/python manage.py migrate
         chdir: /opt/todolist
 
-    - name: Creer le service todolist
+    - name: Donner la propriete du dossier a l'utilisateur todolist
+      ansible.builtin.file:
+        path: /opt/todolist
+        owner: todolist
+        group: todolist
+        recurse: true
+
+    - name: Generer une SECRET_KEY aleatoire (hors du code source)
+      ansible.builtin.set_fact:
+        django_secret: "{{ lookup('password', '/dev/null length=50 chars=ascii_letters,digits') }}"
+
+    - name: Creer le service todolist (durci)
       ansible.builtin.copy:
         dest: /etc/systemd/system/todolist.service
         content: |
@@ -42,9 +61,25 @@
           After=network.target
 
           [Service]
+          User=todolist
+          Group=todolist
           WorkingDirectory=/opt/todolist
+          Environment=HOME=/opt/todolist
+          Environment=DJANGO_SECRET_KEY={{ django_secret }}
           ExecStart=/opt/todolist/venv/bin/gunicorn --bind 0.0.0.0:80 todo.wsgi:application
           Restart=always
+
+          # --- Durcissement ---
+          NoNewPrivileges=true
+          AmbientCapabilities=CAP_NET_BIND_SERVICE
+          CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+          ProtectSystem=strict
+          ReadWritePaths=/opt/todolist
+          ProtectHome=true
+          PrivateTmp=true
+          ProtectKernelTunables=true
+          ProtectControlGroups=true
+          RestrictSUIDSGID=true
 
           [Install]
           WantedBy=multi-user.target
