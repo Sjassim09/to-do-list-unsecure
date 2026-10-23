@@ -71,7 +71,7 @@
           WorkingDirectory=/opt/todolist
           Environment=HOME=/opt/todolist
           Environment=DJANGO_SECRET_KEY={{ django_secret }}
-          ExecStart=/opt/todolist/venv/bin/gunicorn --bind 0.0.0.0:80 todo.wsgi:application
+          ExecStart=/opt/todolist/venv/bin/gunicorn --access-logfile - --bind 0.0.0.0:80 todo.wsgi:application
           Restart=always
 
           # --- Durcissement ---
